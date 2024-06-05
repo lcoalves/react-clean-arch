@@ -1,0 +1,37 @@
+@keyframes blink-cursor {
+  from {
+    border-right-color: rgba(255, 255, 255, 0.75);
+  }
+  to {
+    border-right-color: transparent;
+  }
+}
+
+@keyframes typing {
+  0% {
+    width: 0;
+  }
+
+  100% {
+    width: 70rem;
+  }
+}
+
+@keyframes paint-word {
+  0% {
+    color: #ffffff;
+  }
+
+  100% {
+    color: #ffc600;
+  }
+}
+
+@keyframes slide-top {
+  0% {
+    transform: translateY(-130px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}

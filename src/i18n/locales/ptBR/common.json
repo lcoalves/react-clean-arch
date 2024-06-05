@@ -1,0 +1,15 @@
+{
+  "example": {
+    "learn-more": "Aprenda mais sobre os templates",
+    "page-info": "Página de exemplo",
+    "page-with-api-data-info": "Página de exemplo com dados da API",
+    "loading": "Carregando...",
+    "title": "Título",
+    "description": "Descrição"
+  },
+  "mkt/images": {
+    "homepage": {
+      "default-banner": "https://cdn.pixabay.com/photo/2023/04/05/12/37/town-7901424_960_720.jpg"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+parameters:
+  steps: []
+steps:
+  - task: npmAuthenticate@0
+    displayName: 'NPM authentication'
+    inputs:
+      workingFile: '$(System.DefaultWorkingDirectory)/.npmrc'
+
+  - ${{ each script in parameters.steps }}:
+      - ${{ each pair in script }}:
+          ${{ if ne(pair.key, 'steps') }}:
+            ${{ pair.key }}: ${{ pair.value }}

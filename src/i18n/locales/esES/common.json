@@ -1,0 +1,15 @@
+{
+  "example": {
+    "learn-more": "Learn more about the templates",
+    "page-info": "Pagina de ejemplo",
+    "page-with-api-data-info": "Example page with API data",
+    "loading": "Loading...",
+    "title": "Title",
+    "description": "Description"
+  },
+  "mkt/images": {
+    "homepage": {
+      "default-banner": "https://cdn.pixabay.com/photo/2023/04/10/10/37/park-7913450_960_720.jpg"
+    }
+  }
+}

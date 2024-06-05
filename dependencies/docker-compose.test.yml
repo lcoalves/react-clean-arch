@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  ingress:
+    image: nginx:alpine
+    container_name: ingress_front
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+      - mocks
+    volumes:
+      - ./ingress/nginx-test.conf:/etc/nginx/nginx.conf
+    networks:
+      - app-network
+
+  mocks:
+    build:
+      context: ./mocks/dynamic
+    container_name: mocks
+    ports:
+      - 8906:8906
+    networks:
+      - app-network
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: app
+    volumes:
+      - ../build:/usr/share/nginx/html
+    networks:
+      - app-network
+
+  enviroment-test:
+    build:
+      context: ./mocks/enviroment-test
+    container_name: enviroment-test
+    ports:
+      - 7000:7000
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

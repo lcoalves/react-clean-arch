@@ -1,0 +1,35 @@
+@font-face {
+  font-family: 'TT Display';
+  font-weight: normal;
+  src: url('./tt-fors-display-regular.ttf');
+}
+
+@font-face {
+  font-family: 'TT Display';
+  font-weight: medium;
+  src: url('./tt-fors-display-medium.ttf');
+}
+
+@font-face {
+  font-family: 'TT Display';
+  font-weight: bold;
+  src: url('./tt-fors-display-bold.ttf');
+}
+
+@font-face {
+  font-family: 'Capitana';
+  font-weight: normal;
+  src: url('./capitana-regular.ttf');
+}
+
+@font-face {
+  font-family: 'Capitana';
+  font-weight: medium;
+  src: url('./capitana-medium.ttf');
+}
+
+@font-face {
+  font-family: 'Capitana';
+  font-weight: bold;
+  src: url('./capitana-bold.ttf');
+}

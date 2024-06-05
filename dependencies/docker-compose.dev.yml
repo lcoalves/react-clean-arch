@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  enviroment-test:
+    build:
+      context: ./mocks/enviroment-test
+    container_name: enviroment-test
+    ports:
+      - 3333:3333

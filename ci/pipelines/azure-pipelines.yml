@@ -1,0 +1,214 @@
+trigger:
+  branches:
+    include:
+      - master
+      - release/*
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  DEPLOY_VERSION: '$(Build.BuildId)'
+  YARN_CONFIG_CACHE: '/home/vsts/.cache/yarn/v6'
+  AZURE_SUBSCRIPTION: 'AzureDevOps-BRA-CustomerPortal-D'
+  STORAGE_ACCOUNT_NAME: 'tsrcustportalbrs1stored'
+  disable.coverage.autogenerate: 'true'
+
+stages:
+  - stage: Preparation
+    displayName: 'Build & Validation'
+    jobs:
+      - job: LintValidation
+        displayName: 'Lint validation'
+        steps:
+          - template: ./templates/build-template.yml
+            parameters:
+              steps:
+                - script: |
+                    (yarn install --immutable --immutable-cache --check-cache)
+                  displayName: 'Install dependencies'
+                - task: Cache@2
+                  inputs:
+                    key: 'yarn | "$(Agent.OS)" | yarn.lock'
+                    restoreKeys: |
+                      yarn | "$(Agent.OS)"
+                    path: $(YARN_CONFIG_CACHE)
+                  displayName: Cache yarn
+                - script: |
+                    (yarn lint)
+                  displayName: 'ESLint'
+                - script: |
+                    (yarn format)
+                  displayName: 'Prettier format'
+      - job: CoverageValidation
+        displayName: 'Coverage validation'
+        steps:
+          - template: ./templates/build-template.yml
+            parameters:
+              steps:
+                - script: |
+                    (yarn install --immutable --immutable-cache --check-cache)
+                  displayName: 'Install dependencies'
+                - script: |
+                    (yarn coverage)
+                  displayName: 'Unit tests'
+                - task: PublishTestResults@2
+                  displayName: 'Publish tests results'
+                  condition: succeededOrFailed()
+                  inputs:
+                    testRunner: JUnit
+                    testResultsFiles: '$(System.DefaultWorkingDirectory)/reports/junit.xml'
+                - task: PublishCodeCoverageResults@1
+                  displayName: 'Publish coverage results'
+                  inputs:
+                    codeCoverageTool: Cobertura
+                    pathToSources: '$(System.DefaultWorkingDirectory)/src'
+                    reportDirectory: '$(System.DefaultWorkingDirectory)/reports'
+                    summaryFileLocation: '$(System.DefaultWorkingDirectory)/reports/cobertura-coverage.xml'
+      - job: IntegrationValidation
+        displayName: 'Integration validation'
+        steps:
+          - template: ./templates/build-template.yml
+            parameters:
+              steps:
+                - script: |
+                    (yarn install --immutable --immutable-cache --check-cache)
+                  displayName: 'Install dependencies'
+                - script: |
+                    (yarn test:integration)
+                  displayName: 'Integration tests'
+      - job: SonarcloudValidation
+        displayName: 'Sonarcloud validation'
+        steps:
+          - template: ./templates/build-template.yml
+            parameters:
+              steps:
+                - script: |
+                    (yarn install --immutable --immutable-cache --check-cache)
+                  displayName: 'Install dependencies'
+                - script: |
+                    (yarn coverage)
+                  displayName: 'Unit tests'
+                - task: SonarCloudPrepare@1
+                  inputs:
+                    SonarCloud: 'SonarCloud'
+                    organization: 'your-organization'
+                    scannerMode: 'CLI'
+                    projectKey: 'your-project-key-<%= repositoryName %>'
+                    projectName: '<%= repositoryName %>'
+                    configMode: 'file'
+                    projectVersion: $(Build.SourceVersion)
+                - task: SonarCloudAnalyze@1
+                  displayName: Sonar Analysis
+                  continueOnError: true
+                - task: SonarCloudPublish@1
+                  displayName: Sonar Publish
+                  continueOnError: true
+                  inputs:
+                    pollingTimeoutSec: '300'
+      - job: BuildArtifact
+        displayName: 'Build artifact'
+        steps:
+          - checkout: self
+            persistCredentials: true
+          - template: ./templates/build-template.yml
+            parameters:
+              steps:
+                - script: |
+                    (yarn install --immutable --immutable-cache --check-cache)
+                  displayName: 'Install dependencies'
+                - script: |
+                    (yarn build)
+                  displayName: 'Build packages'
+          - task: CopyFiles@2
+            displayName: 'Copy web content'
+            inputs:
+              SourceFolder: '$(System.DefaultWorkingDirectory)/dist'
+              TargetFolder: '$(Build.ArtifactStagingDirectory)/<%= normalizedMfeName %>/dist'
+              cleanTargetFolder: true
+          - task: PublishBuildArtifacts@1
+            displayName: Publish artifact
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      # - job: Security validation
+
+  - stage: DEV
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    displayName: 'DEV'
+    dependsOn:
+      - Preparation
+    jobs:
+      - deployment: DeployDev
+        displayName: Deploy to DEV
+        environment: CP_DEV
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  persistCredentials: true
+                - task: DownloadBuildArtifacts@0
+                  displayName: 'Download artifact'
+                  inputs:
+                    buildType: 'current'
+                    downloadType: 'single'
+                    artifactName: 'drop'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                - task: AzureCLI@2
+                  displayName: Azure file copy
+                  inputs:
+                    azureSubscription: '$(AZURE_SUBSCRIPTION)'
+                    scriptLocation: inlineScript
+                    scriptType: bash
+                    inlineScript: |
+                      az storage blob upload-batch \
+                        --destination "\$web\<%= normalizedMfeName %>" \
+                        --account-name "$(STORAGE_ACCOUNT_NAME)" \
+                        --source "$(System.ArtifactsDirectory)/drop/<%= normalizedMfeName %>/dist" \
+                        --overwrite
+                - task: PowerShell@2
+                  displayName: Publish dev tag
+                  inputs:
+                    targetType: 'inline'
+                    script: 'Write-Host "##vso[build.addbuildtag]dev-tag"'
+
+  - stage: UAT
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    displayName: 'UAT'
+    dependsOn:
+      - Preparation
+      - DEV
+    jobs:
+      - deployment: DeployUat
+        displayName: Deploy to UAT
+        environment: CP_UAT
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  persistCredentials: true
+                - task: DownloadBuildArtifacts@0
+                  displayName: 'Download artifact'
+                  inputs:
+                    buildType: 'current'
+                    downloadType: 'single'
+                    artifactName: 'drop'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+                - task: AzureCLI@2
+                  displayName: Azure file copy
+                  inputs:
+                    azureSubscription: '$(AZURE_SUBSCRIPTION)'
+                    scriptLocation: inlineScript
+                    scriptType: bash
+                    inlineScript: |
+                      az storage blob upload-batch \
+                        --account-name "$(STORAGE_ACCOUNT_NAME)" \
+                        --source "$(System.ArtifactsDirectory)/drop/<%= normalizedMfeName %>/dist" \
+                        --destination "\$web\<%= normalizedMfeName %>" \
+                        --overwrite
+                - task: PowerShell@2
+                  displayName: Publish uat tag
+                  inputs:
+                    targetType: 'inline'
+                    script: 'Write-Host "##vso[build.addbuildtag]uat-tag"'
