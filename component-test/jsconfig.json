@@ -1,0 +1,8 @@
+{
+  "include": [
+    "./node_modules/cypress",
+    "./**/*.js",
+    "page_objects/Common.page.js",
+    "step_definitions/Common.steps.ts"
+  ]
+}
